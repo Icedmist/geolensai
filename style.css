@@ -1,0 +1,174 @@
+:root {
+    --primary: #00ffa3; /* Neon Mint */
+    --secondary: #7000ff; /* Electric Purple */
+    --bg: #0a0a0a;
+    --glass: rgba(255, 255, 255, 0.05);
+    --border: rgba(255, 255, 255, 0.1);
+    --text: #ffffff;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    overflow: hidden; /* Prevent scrolling */
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- LANDING PAGE --- */
+#landing-page {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    transition: opacity 0.5s ease;
+}
+
+h1 {
+    font-size: 3rem;
+    background: linear-gradient(to right, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+    letter-spacing: -1px;
+}
+
+p.subtitle {
+    color: #888;
+    font-size: 1.1rem;
+    max-width: 400px;
+    margin-bottom: 40px;
+    line-height: 1.5;
+}
+
+/* --- THE MAIN BUTTON --- */
+#scanButton {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #000;
+    border: none;
+    padding: 18px 40px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0, 255, 163, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#scanButton:active {
+    transform: scale(0.95);
+    box-shadow: 0 5px 15px rgba(0, 255, 163, 0.2);
+}
+
+/* --- APP INTERFACE (Hidden initially) --- */
+#app-interface {
+    display: none; /* Logic script will show this */
+    position: relative;
+    width: 100%;
+    height: 100%;
+    opacity: 0; /* Fade in effect */
+    animation: fadeIn 1s forwards;
+}
+
+@keyframes fadeIn { to { opacity: 1; } }
+
+/* Camera Container */
+#cam-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 10;
+}
+ 
+
+/* --- GLASS HUD (Text Display) --- */
+#hud-overlay {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    background: rgba(20, 20, 20, 0.6); /* Semi-transparent black */
+    backdrop-filter: blur(15px); /* BLUR EFFECT */
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 20px;
+    z-index: 20;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+#sceneText {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--primary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#objectList {
+    margin: 5px 0 0 0;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #fff;
+}
+
+/* --- TOP BAR (Battery Saver) --- */
+.top-bar {
+    position: absolute;
+    top: 20px; right: 20px;
+    z-index: 30;
+}
+
+#screenToggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+/* --- FOOTER (About) --- */
+footer {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #555;
+    z-index: 101; /* Above everything on landing page */
+}
+
+footer a {
+    color: #777;
+    text-decoration: none;
+    margin: 0 10px;
+    font-weight: bold;
+}

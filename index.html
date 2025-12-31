@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GeoLens AI</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+</head>
+<body>
+
+    <div id="landing-page">
+        <div class="hero-content">
+            <h1>GeoLens AI</h1>
+            <p class="subtitle">Offline vision assistance powered by edge computing. See the world through sound and logic.</p>
+            
+            <button id="scanButton">Launch Core</button>
+        </div>
+
+        <footer>
+            <span>Built by <strong>Nasir Ibrahim Imam</strong></span><br>
+            <a href="https://github.com/icedmist" target="_blank">GitHub</a> • 
+            <a href="https://linkedin.com/in/nasir-ibrahim-imam-403ba523b" target="_blank">LinkedIn</a>
+        </footer>
+    </div>
+
+    <div id="app-interface">
+        
+        <div class="top-bar">
+            <button id="screenToggle">⚡ Saver Mode</button>
+        </div>
+
+        <div id="cam-container">
+            <video id="webcam" playsinline muted autoplay></video>
+            <canvas id="canvas"></canvas>
+            <div class="scan-line"></div>
+        </div>
+
+        <div id="hud-overlay">
+            <h3 id="sceneText">SYSTEM READY</h3>
+            <p id="objectList">Waiting for visual input...</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    
+    <script>
+        // Simple logic to hide landing page when app starts
+        // (Your main script handles the camera, this just handles the fade out)
+        document.getElementById('scanButton').addEventListener('click', () => {
+            const landing = document.getElementById('landing-page');
+            landing.style.opacity = '0';
+            setTimeout(() => { landing.style.display = 'none'; }, 500);
+        });
+    </script>
+</body>
+</html>
