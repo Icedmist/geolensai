@@ -4,79 +4,179 @@
 
 // 1. CONFIGURATION
 const MODEL_CONFIG = { base: 'mobilenet_v2' }; 
-    const CONFIDENCE_THRESHOLD = 0.55; 
-    
-    // 2. ELEMENT SELECTORS
-    const video = document.getElementById('webcam');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const scanButton = document.getElementById('scanButton');
-    const screenToggle = document.getElementById('screenToggle');
-    const sceneText = document.getElementById('sceneText');
-    const objectList = document.getElementById('objectList');
-    const appInterface = document.getElementById('app-interface');
-    const confidenceDisplay = document.getElementById('confidence');
-    const statusDot = document.querySelector('.status-dot');
-    const statusText = document.querySelector('.status-text');
-    
-    // 3. STATE
-    let model = null;
-    let isScanning = false;
-    let lastSpeechTime = 0;
-    let previousFrameData = {}; 
-    let wakeLock = null;
-    
-    // ==========================================
-    // 4. INITIALIZATION
-    // ==========================================
-    scanButton.addEventListener('click', async () => {
-        if (isScanning) return;
+const CONFIDENCE_THRESHOLD = 0.55;
+const OFFLINE_MODEL_KEY = 'geolensai_model_cache';
+const OFFLINE_MODEL_VERSION = '1.0';
+
+// 2. ELEMENT SELECTORS
+const video = document.getElementById('webcam');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const scanButton = document.getElementById('scanButton');
+const screenToggle = document.getElementById('screenToggle');
+const sceneText = document.getElementById('sceneText');
+const objectList = document.getElementById('objectList');
+const appInterface = document.getElementById('app-interface');
+const confidenceDisplay = document.getElementById('confidence');
+const statusDot = document.querySelector('.status-dot');
+const statusText = document.querySelector('.status-text');
+
+// 3. STATE
+let model = null;
+let isScanning = false;
+let lastSpeechTime = 0;
+let previousFrameData = {}; 
+let wakeLock = null;
+let modelLoaded = false;
+
+// ==========================================
+// 4. OFFLINE MODEL MANAGEMENT
+// ==========================================
+async function cacheModel() {
+    try {
+        if (!('indexedDB' in window)) {
+            console.log("IndexedDB not available, offline mode disabled");
+            return false;
+        }
         
-        scanButton.innerText = "STARTING...";
-        scanButton.disabled = true;
+        const db = await openIndexedDB();
+        const cached = await getModelFromCache(db);
         
+        if (!cached) {
+            console.log("Downloading model for offline use...");
+            await downloadAndCacheModel(db);
+        } else {
+            console.log("Model already cached for offline use");
+        }
+        return true;
+    } catch (err) {
+        console.log("Model caching failed:", err.message);
+        return false;
+    }
+}
+
+function openIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('GeoLensAI', 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('models')) {
+                db.createObjectStore('models', { keyPath: 'id' });
+            }
+        };
+    });
+}
+
+function getModelFromCache(db) {
+    return new Promise((resolve) => {
+        const transaction = db.transaction(['models'], 'readonly');
+        const store = transaction.objectStore('models');
+        const request = store.get('coco-ssd');
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(null);
+    });
+}
+
+async function downloadAndCacheModel(db) {
+    try {
+        // Trigger model download in background
+        const modelUrl = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/';
+        
+        // Pre-load model to ensure it's cached
+        const testModel = await cocoSsd.load(MODEL_CONFIG);
+        
+        // Store metadata
+        const transaction = db.transaction(['models'], 'readwrite');
+        const store = transaction.objectStore('models');
+        store.put({
+            id: 'coco-ssd',
+            version: OFFLINE_MODEL_VERSION,
+            timestamp: Date.now(),
+            url: modelUrl
+        });
+        
+        console.log("Model downloaded and cached successfully");
+    } catch (err) {
+        console.log("Model download failed:", err.message);
+    }
+}
+
+// ==========================================
+// 5. INITIALIZATION
+// ==========================================
+// Auto-cache model on page load
+window.addEventListener('load', () => {
+    cacheModel();
+});
+
+scanButton.addEventListener('click', async () => {
+    if (isScanning) return;
+    
+    scanButton.innerText = "LOADING MODEL...";
+    scanButton.disabled = true;
+    
+    try {
+        // A. Load Model with offline fallback
         try {
-            // A. Load Model
             model = await cocoSsd.load(MODEL_CONFIG);
-            
-            // B. Start Camera
+            modelLoaded = true;
+            scanButton.innerText = "STARTING CAMERA...";
+        } catch (err) {
+            console.error("Model load failed:", err);
+            throw new Error("Failed to load detection model. Please check your connection.");
+        }
+        
+        // B. Start Camera
+        try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
             });
             video.srcObject = stream;
-    
-            // C. Wake Lock
-            if ('wakeLock' in navigator) {
-                try { wakeLock = await navigator.wakeLock.request('screen'); } 
-                catch (err) { console.log("Wake Lock ignored"); }
-            }
-    
-            video.onloadedmetadata = () => {
-                video.play();
-                startAppUI();
-            };
-    
         } catch (err) {
-            alert("Error: " + err.message);
-            scanButton.innerText = "TRY AGAIN";
-            scanButton.disabled = false;
+            throw new Error("Camera access denied or not available");
         }
-    });
-    
-    function startAppUI() {
-        isScanning = true;
-        if (appInterface) appInterface.style.display = 'block';
-        
-        // Hide the landing page smoothly
-        const landing = document.getElementById('landing-page');
-        if(landing) landing.style.display = 'none';
-        
-        // Update status indicator
-        if (statusText) statusText.innerText = 'Scanning';
-        
-        speak("Geo Lens Active.");
-        detectFrame();
+
+        // C. Wake Lock
+        if ('wakeLock' in navigator) {
+            try { wakeLock = await navigator.wakeLock.request('screen'); } 
+            catch (err) { console.log("Wake Lock not available"); }
+        }
+
+        video.onloadedmetadata = () => {
+            video.play();
+            startAppUI();
+        };
+
+    } catch (err) {
+        alert("Error: " + err.message);
+        scanButton.innerText = "TRY AGAIN";
+        scanButton.disabled = false;
     }
+});
+
+function startAppUI() {
+    isScanning = true;
+    if (appInterface) appInterface.style.display = 'block';
+    
+    // Hide the landing page smoothly
+    const landing = document.getElementById('landing-page');
+    if(landing) landing.style.display = 'none';
+    
+    // Update status indicator
+    if (statusText) statusText.innerText = 'Scanning';
+    
+    speak("Geo Lens Active.");
+    detectFrame();
+}
     
     // ==========================================
     // 5. MAIN LOOP
