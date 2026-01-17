@@ -13,23 +13,38 @@
 
     <div id="landing-page">
         <div class="hero-content">
+            <div class="logo-badge">
+                <div class="logo-circle">👁️</div>
+            </div>
             <h1>GeoLens AI</h1>
             <p class="subtitle">Offline vision assistance powered by edge computing. See the world through sound and logic.</p>
             
-            <button id="scanButton">Launch Core</button>
+            <button id="scanButton" class="launch-btn" aria-label="Launch core functionality">
+                <span class="btn-text">Launch Core</span>
+                <span class="btn-icon">→</span>
+            </button>
         </div>
 
         <footer>
             <span>Built by <strong>Nasir Ibrahim Imam</strong></span><br>
-            <a href="https://github.com/icedmist" target="_blank">GitHub</a> • 
-            <a href="https://linkedin.com/in/nasir-ibrahim-imam-403ba523b" target="_blank">LinkedIn</a>
+            <nav class="social-links">
+                <a href="https://github.com/icedmist" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
+                <span class="separator">•</span>
+                <a href="https://linkedin.com/in/nasir-ibrahim-imam-403ba523b" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">LinkedIn</a>
+            </nav>
         </footer>
     </div>
 
     <div id="app-interface">
         
         <div class="top-bar">
-            <button id="screenToggle">⚡ Saver Mode</button>
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span class="status-text">Ready</span>
+            </div>
+            <button id="screenToggle" class="icon-btn" aria-label="Toggle battery saver mode" title="Toggle battery saver mode">
+                <span class="icon-text">⚡</span>
+            </button>
         </div>
 
         <div id="cam-container">
@@ -39,8 +54,14 @@
         </div>
 
         <div id="hud-overlay">
-            <h3 id="sceneText">SYSTEM READY</h3>
-            <p id="objectList">Waiting for visual input...</p>
+            <div class="hud-header">
+                <h3 id="sceneText" class="hud-title">SYSTEM READY</h3>
+                <span class="hud-confidence" id="confidence">--</span>
+            </div>
+            <p id="objectList" class="hud-content">Waiting for visual input...</p>
+            <div class="hud-footer">
+                <span class="hud-hint">🔊 Audio active</span>
+            </div>
         </div>
     </div>
 

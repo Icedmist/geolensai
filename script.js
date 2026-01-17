@@ -15,6 +15,9 @@ const MODEL_CONFIG = { base: 'mobilenet_v2' };
     const sceneText = document.getElementById('sceneText');
     const objectList = document.getElementById('objectList');
     const appInterface = document.getElementById('app-interface');
+    const confidenceDisplay = document.getElementById('confidence');
+    const statusDot = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-text');
     
     // 3. STATE
     let model = null;
@@ -67,7 +70,10 @@ const MODEL_CONFIG = { base: 'mobilenet_v2' };
         // Hide the landing page smoothly
         const landing = document.getElementById('landing-page');
         if(landing) landing.style.display = 'none';
-    
+        
+        // Update status indicator
+        if (statusText) statusText.innerText = 'Scanning';
+        
         speak("Geo Lens Active.");
         detectFrame();
     }
@@ -88,10 +94,15 @@ const MODEL_CONFIG = { base: 'mobilenet_v2' };
     
         let sceneObjects = [];
         let detailedObjects = []; 
+        let maxConfidence = 0;
     
         predictions.forEach(prediction => {
             const [x, y, width, height] = prediction.bbox;
             const label = prediction.class;
+            const score = prediction.score;
+            
+            // Track max confidence
+            if (score > maxConfidence) maxConfidence = score;
             
             // Draw Box
             drawBox(x, y, width, height, label);
@@ -102,9 +113,14 @@ const MODEL_CONFIG = { base: 'mobilenet_v2' };
             const position = getSpatialPosition(x, width);
     
             sceneObjects.push(label);
-            detailedObjects.push({ label, color, movement, position });
+            detailedObjects.push({ label, color, movement, position, score });
         });
     
+        // Update confidence display
+        if (confidenceDisplay) {
+            confidenceDisplay.innerText = maxConfidence > 0 ? `${Math.round(maxConfidence * 100)}%` : '--';
+        }
+        
         // Logic Brain (Runs every 4 seconds)
         const now = Date.now();
         if (now - lastSpeechTime > 4000) {
@@ -138,6 +154,23 @@ const MODEL_CONFIG = { base: 'mobilenet_v2' };
     function updateStatus(title, subtitle) {
         if (sceneText) sceneText.innerText = title.toUpperCase();
         if (objectList) objectList.innerText = subtitle;
+        
+        // Update status indicator based on hazard level
+        if (statusDot && statusText) {
+            if (subtitle.includes('APPROACHING')) {
+                statusDot.style.background = 'var(--error)';
+                statusDot.style.boxShadow = '0 0 15px var(--error), inset 0 0 5px rgba(255, 51, 51, 0.5)';
+                statusText.innerText = 'Hazard';
+            } else if (subtitle.includes('detected')) {
+                statusDot.style.background = 'var(--warning)';
+                statusDot.style.boxShadow = '0 0 15px var(--warning), inset 0 0 5px rgba(255, 165, 0, 0.5)';
+                statusText.innerText = 'Detecting';
+            } else {
+                statusDot.style.background = 'var(--success)';
+                statusDot.style.boxShadow = '0 0 10px var(--success), inset 0 0 5px rgba(0, 214, 133, 0.5)';
+                statusText.innerText = 'Ready';
+            }
+        }
     }
     
     function deduceEnvironment(labels) {
@@ -221,10 +254,12 @@ const MODEL_CONFIG = { base: 'mobilenet_v2' };
             const container = document.getElementById('cam-container');
             if (container.style.opacity === "0") {
                 container.style.opacity = "1";
-                screenToggle.innerText = "🔋 Saver";
+                screenToggle.innerHTML = '<span class="icon-text">📺</span>';
+                screenToggle.title = 'Enable battery saver mode';
             } else {
                 container.style.opacity = "0";
-                screenToggle.innerText = "📺 Show";
+                screenToggle.innerHTML = '<span class="icon-text">⚡</span>';
+                screenToggle.title = 'Disable battery saver mode';
             }
         });
     }
