@@ -20,6 +20,19 @@ const appInterface = document.getElementById('app-interface');
 const confidenceDisplay = document.getElementById('confidence');
 const statusDot = document.querySelector('.status-dot');
 const statusText = document.querySelector('.status-text');
+const loadingOverlay = document.getElementById('loading-overlay');
+const progressFill = document.getElementById('progressFill');
+const loaderStatus = document.getElementById('loaderStatus');
+const fpsCounter = document.getElementById('fps-counter');
+const inferenceTime = document.getElementById('inference-time');
+const audioToggle = document.getElementById('audioToggle');
+const audioControls = document.getElementById('audio-controls');
+const closeAudioControls = document.getElementById('closeAudioControls');
+const speechRateSlider = document.getElementById('speechRate');
+const volumeSlider = document.getElementById('volume');
+const muteToggle = document.getElementById('muteToggle');
+const rateDisplay = document.getElementById('rateDisplay');
+const volumeDisplay = document.getElementById('volumeDisplay');
 
 // 3. STATE
 let model = null;
@@ -28,6 +41,12 @@ let lastSpeechTime = 0;
 let previousFrameData = {}; 
 let wakeLock = null;
 let modelLoaded = false;
+let frameCount = 0;
+let lastFrameTime = Date.now();
+let currentInferenceTime = 0;
+let audioMuted = false;
+let currentVolume = 1.0;
+let currentSpeechRate = 1.1;
 
 // ==========================================
 // 4. OFFLINE MODEL MANAGEMENT
@@ -84,22 +103,15 @@ function getModelFromCache(db) {
 
 async function downloadAndCacheModel(db) {
     try {
-        // Trigger model download in background
-        const modelUrl = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/';
-        
-        // Pre-load model to ensure it's cached
         const testModel = await cocoSsd.load(MODEL_CONFIG);
-        
-        // Store metadata
         const transaction = db.transaction(['models'], 'readwrite');
         const store = transaction.objectStore('models');
         store.put({
             id: 'coco-ssd',
             version: OFFLINE_MODEL_VERSION,
             timestamp: Date.now(),
-            url: modelUrl
+            url: 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/'
         });
-        
         console.log("Model downloaded and cached successfully");
     } catch (err) {
         console.log("Model download failed:", err.message);
@@ -107,25 +119,100 @@ async function downloadAndCacheModel(db) {
 }
 
 // ==========================================
-// 5. INITIALIZATION
+// 5. AUDIO CONTROLS
+// ==========================================
+function setupAudioControls() {
+    audioToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        audioControls.classList.toggle('hidden');
+    });
+    
+    closeAudioControls.addEventListener('click', () => {
+        audioControls.classList.add('hidden');
+    });
+    
+    speechRateSlider.addEventListener('input', (e) => {
+        currentSpeechRate = parseFloat(e.target.value);
+        rateDisplay.innerText = currentSpeechRate.toFixed(1) + 'x';
+    });
+    
+    volumeSlider.addEventListener('input', (e) => {
+        currentVolume = parseFloat(e.target.value) / 100;
+        volumeDisplay.innerText = e.target.value + '%';
+    });
+    
+    muteToggle.addEventListener('change', (e) => {
+        audioMuted = e.target.checked;
+        audioToggle.style.opacity = audioMuted ? '0.5' : '1';
+    });
+    
+    // Close audio panel when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!audioControls.contains(e.target) && !audioToggle.contains(e.target)) {
+            audioControls.classList.add('hidden');
+        }
+    });
+}
+
+// ==========================================
+// 6. PERFORMANCE METRICS
+// ==========================================
+function updatePerformanceMetrics() {
+    const now = Date.now();
+    const deltaTime = now - lastFrameTime;
+    
+    if (deltaTime > 0) {
+        const fps = Math.round(1000 / deltaTime);
+        fpsCounter.innerText = `FPS: ${fps}`;
+    }
+    
+    inferenceTime.innerText = `${currentInferenceTime}ms`;
+    lastFrameTime = now;
+}
+
+// ==========================================
+// 7. LOADING PROGRESS
+// ==========================================
+function updateLoadingProgress(percent, message) {
+    if (progressFill) progressFill.style.width = percent + '%';
+    if (loaderStatus) loaderStatus.innerText = message;
+}
+
+// ==========================================
+// 8. INITIALIZATION
 // ==========================================
 // Auto-cache model on page load
 window.addEventListener('load', () => {
     cacheModel();
+    setupAudioControls();
 });
 
 scanButton.addEventListener('click', async () => {
     if (isScanning) return;
     
-    scanButton.innerText = "LOADING MODEL...";
+    loadingOverlay.classList.remove('hidden');
+    updateLoadingProgress(10, "Loading AI model...");
     scanButton.disabled = true;
     
     try {
         // A. Load Model with offline fallback
         try {
-            model = await cocoSsd.load(MODEL_CONFIG);
+            const modelPromise = cocoSsd.load(MODEL_CONFIG);
+            
+            // Simulate progress while loading
+            let progress = 10;
+            const progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += Math.random() * 20;
+                    updateLoadingProgress(Math.min(progress, 90), "Initializing neural network...");
+                }
+            }, 300);
+            
+            model = await modelPromise;
+            clearInterval(progressInterval);
+            
             modelLoaded = true;
-            scanButton.innerText = "STARTING CAMERA...";
+            updateLoadingProgress(95, "Starting camera...");
         } catch (err) {
             console.error("Model load failed:", err);
             throw new Error("Failed to load detection model. Please check your connection.");
@@ -153,18 +240,22 @@ scanButton.addEventListener('click', async () => {
 
         video.onloadedmetadata = () => {
             video.play();
-            startAppUI();
+            updateLoadingProgress(100, "Ready!");
+            setTimeout(() => {
+                startAppUI();
+            }, 500);
         };
 
     } catch (err) {
+        loadingOverlay.classList.add('hidden');
         alert("Error: " + err.message);
-        scanButton.innerText = "TRY AGAIN";
         scanButton.disabled = false;
     }
 });
 
 function startAppUI() {
     isScanning = true;
+    loadingOverlay.classList.add('hidden');
     if (appInterface) appInterface.style.display = 'block';
     
     // Hide the landing page smoothly
@@ -179,7 +270,7 @@ function startAppUI() {
 }
     
     // ==========================================
-    // 5. MAIN LOOP
+    // 9. MAIN LOOP
     // ==========================================
     async function detectFrame() {
         if (!isScanning) return;
@@ -189,8 +280,13 @@ function startAppUI() {
         canvas.height = video.videoHeight;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+        // Measure inference time
+        const inferenceStart = performance.now();
+        
         // Detect Objects
         const predictions = await model.detect(video, 10, CONFIDENCE_THRESHOLD);
+        
+        currentInferenceTime = Math.round(performance.now() - inferenceStart);
     
         let sceneObjects = [];
         let detailedObjects = []; 
@@ -221,6 +317,9 @@ function startAppUI() {
             confidenceDisplay.innerText = maxConfidence > 0 ? `${Math.round(maxConfidence * 100)}%` : '--';
         }
         
+        // Update performance metrics
+        updatePerformanceMetrics();
+        
         // Logic Brain (Runs every 4 seconds)
         const now = Date.now();
         if (now - lastSpeechTime > 4000) {
@@ -232,7 +331,7 @@ function startAppUI() {
     }
     
     // ==========================================
-    // 6. LOGIC BRAIN
+    // 10. LOGIC BRAIN
     // ==========================================
     function processSmartLogic(sceneObjs, detailedObjs) {
         if (detailedObjs.length === 0) {
@@ -304,7 +403,7 @@ function startAppUI() {
     }
     
     // ==========================================
-    // 7. UTILITIES
+    // 11. UTILITIES
     // ==========================================
     function detectMovement(label, currentArea) {
         const prev = previousFrameData[label];
@@ -343,9 +442,12 @@ function startAppUI() {
     }
     
     function speak(text) {
+        if (audioMuted) return;
         if (window.speechSynthesis.speaking) return;
+        
         const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1.1; 
+        u.rate = currentSpeechRate;
+        u.volume = currentVolume;
         window.speechSynthesis.speak(u);
     }
     

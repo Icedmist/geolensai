@@ -42,9 +42,55 @@
                 <span class="status-dot"></span>
                 <span class="status-text">Ready</span>
             </div>
+            <div class="performance-metrics">
+                <span class="metric-item" id="fps-counter">FPS: 0</span>
+                <span class="metric-separator">|</span>
+                <span class="metric-item" id="inference-time">0ms</span>
+            </div>
+            <button id="audioToggle" class="icon-btn" aria-label="Audio controls" title="Toggle audio controls">
+                <span class="icon-text">🔊</span>
+            </button>
             <button id="screenToggle" class="icon-btn" aria-label="Toggle battery saver mode" title="Toggle battery saver mode">
                 <span class="icon-text">⚡</span>
             </button>
+        </div>
+
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="loader-container">
+                <div class="spinner"></div>
+                <h3>Loading Model</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p class="loader-status" id="loaderStatus">Initializing...</p>
+            </div>
+        </div>
+
+        <div id="audio-controls" class="audio-controls hidden">
+            <div class="controls-header">
+                <h4>Audio Settings</h4>
+                <button class="close-btn" id="closeAudioControls">✕</button>
+            </div>
+            <div class="control-group">
+                <label for="speechRate">Speech Rate:</label>
+                <div class="slider-container">
+                    <input type="range" id="speechRate" min="0.5" max="2" step="0.1" value="1.1">
+                    <span class="value-display" id="rateDisplay">1.1x</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="volume">Volume:</label>
+                <div class="slider-container">
+                    <input type="range" id="volume" min="0" max="100" step="5" value="100">
+                    <span class="value-display" id="volumeDisplay">100%</span>
+                </div>
+            </div>
+            <div class="control-group checkbox">
+                <label for="muteToggle">
+                    <input type="checkbox" id="muteToggle">
+                    <span>Mute Audio</span>
+                </label>
+            </div>
         </div>
 
         <div id="cam-container">
