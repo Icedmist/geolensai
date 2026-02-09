@@ -53,6 +53,9 @@
             <button id="screenToggle" class="icon-btn" aria-label="Toggle battery saver mode" title="Toggle battery saver mode">
                 <span class="icon-text">⚡</span>
             </button>
+            <button id="historyToggle" class="icon-btn" aria-label="View detection history" title="View detection history">
+                <span class="icon-text">📋</span>
+            </button>
         </div>
 
         <div id="loading-overlay" class="loading-overlay">
@@ -107,6 +110,21 @@
             <p id="objectList" class="hud-content">Initializing camera feed...</p>
             <div class="hud-footer">
                 <span class="hud-hint">🔊 Audio active</span>
+            </div>
+        </div>
+
+        <div id="history-panel" class="history-panel hidden">
+            <div class="history-header">
+                <h4>Detection History</h4>
+                <button class="close-btn" id="closeHistory">✕</button>
+            </div>
+            <div class="history-content">
+                <div id="historyList" class="history-list">
+                    <p class="history-empty">No detections yet</p>
+                </div>
+            </div>
+            <div class="history-footer">
+                <button id="clearHistory" class="clear-btn">Clear History</button>
             </div>
         </div>
     </div>

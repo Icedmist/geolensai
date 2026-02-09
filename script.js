@@ -33,6 +33,11 @@ const volumeSlider = document.getElementById('volume');
 const muteToggle = document.getElementById('muteToggle');
 const rateDisplay = document.getElementById('rateDisplay');
 const volumeDisplay = document.getElementById('volumeDisplay');
+const historyToggle = document.getElementById('historyToggle');
+const historyPanel = document.getElementById('history-panel');
+const closeHistory = document.getElementById('closeHistory');
+const clearHistoryBtn = document.getElementById('clearHistory');
+const historyList = document.getElementById('historyList');
 
 // 3. STATE
 let model = null;
@@ -47,6 +52,8 @@ let currentInferenceTime = 0;
 let audioMuted = false;
 let currentVolume = 1.0;
 let currentSpeechRate = 1.1;
+let detectionHistory = [];
+const MAX_HISTORY_ITEMS = 50;
 
 // ==========================================
 // 4. OFFLINE MODEL MANAGEMENT
@@ -300,6 +307,9 @@ function startAppUI() {
             // Track max confidence
             if (score > maxConfidence) maxConfidence = score;
             
+            // Add to detection history
+            addToHistory(label, score);
+            
             // Draw Box
             drawBox(x, y, width, height, label);
     
@@ -462,6 +472,63 @@ function startAppUI() {
                 container.style.opacity = "0";
                 screenToggle.innerHTML = '<span class="icon-text">⚡</span>';
                 screenToggle.title = 'Disable battery saver mode';
+            }
+        });
+    }
+
+    // DETECTION HISTORY FEATURE
+    function addToHistory(objectName, confidence) {
+        const timestamp = new Date();
+        const historyEntry = {
+            name: objectName,
+            confidence: (confidence * 100).toFixed(1),
+            time: timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+        };
+        
+        // Add to the beginning of history
+        detectionHistory.unshift(historyEntry);
+        
+        // Limit history size
+        if (detectionHistory.length > MAX_HISTORY_ITEMS) {
+            detectionHistory.pop();
+        }
+        
+        updateHistoryDisplay();
+    }
+    
+    function updateHistoryDisplay() {
+        if (detectionHistory.length === 0) {
+            historyList.innerHTML = '<p class="history-empty">No detections yet</p>';
+            return;
+        }
+        
+        historyList.innerHTML = detectionHistory.map((item, index) => `
+            <div class="history-item">
+                <div class="history-item-name">${item.name}</div>
+                <div class="history-item-confidence">${item.confidence}%</div>
+                <div class="history-item-time">${item.time}</div>
+            </div>
+        `).join('');
+    }
+    
+    // History panel controls
+    if (historyToggle) {
+        historyToggle.addEventListener('click', () => {
+            historyPanel.classList.toggle('hidden');
+        });
+    }
+    
+    if (closeHistory) {
+        closeHistory.addEventListener('click', () => {
+            historyPanel.classList.add('hidden');
+        });
+    }
+    
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener('click', () => {
+            if (confirm('Clear all detection history?')) {
+                detectionHistory = [];
+                updateHistoryDisplay();
             }
         });
     }

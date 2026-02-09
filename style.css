@@ -914,3 +914,191 @@ footer a:hover::after {
     color: #555;
     margin: 0 5px;
 }
+
+/* --- DETECTION HISTORY PANEL --- */
+.history-panel {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 100%;
+    max-width: 350px;
+    height: 70vh;
+    max-height: 500px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    z-index: 90;
+    box-shadow: 0 -5px 40px rgba(0, 255, 163, 0.1);
+    animation: historySlideUp 0.3s ease-out;
+    transform-origin: bottom right;
+}
+
+@keyframes historySlideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.history-panel.hidden {
+    display: none;
+}
+
+.history-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 5px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+    background: var(--glass);
+    color: var(--text);
+}
+
+.history-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.history-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 20px;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.history-item {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    animation: slideInHistory 0.3s ease-out;
+    transition: all 0.2s ease;
+}
+
+@keyframes slideInHistory {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.history-item:hover {
+    background: rgba(0, 255, 163, 0.08);
+    border-color: rgba(0, 255, 163, 0.3);
+}
+
+.history-item-name {
+    flex: 1;
+    font-weight: 500;
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+.history-item-time {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.history-item-confidence {
+    font-size: 0.75rem;
+    color: var(--success);
+    font-weight: 600;
+    background: rgba(0, 214, 133, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.history-footer {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.clear-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.clear-btn:hover {
+    background: rgba(255, 51, 51, 0.1);
+    border-color: var(--error);
+    color: var(--error);
+}
+
+/* Scrollbar styling for history content */
+.history-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.history-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.history-content::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+.history-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 163, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .history-panel {
+        max-width: 100%;
+        max-height: 60vh;
+    }
+}
