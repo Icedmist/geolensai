@@ -5,7 +5,6 @@
 // 1. CONFIGURATION
 const MODEL_CONFIG = { base: 'mobilenet_v2' }; 
 const CONFIDENCE_THRESHOLD = 0.55;
-const OFFLINE_MODEL_KEY = 'geolensai_model_cache';
 const OFFLINE_MODEL_VERSION = '1.0';
 
 // 2. ELEMENT SELECTORS
@@ -45,8 +44,6 @@ let isScanning = false;
 let lastSpeechTime = 0;
 let previousFrameData = {}; 
 let wakeLock = null;
-let modelLoaded = false;
-let frameCount = 0;
 let lastFrameTime = Date.now();
 let currentInferenceTime = 0;
 let audioMuted = false;
@@ -56,7 +53,6 @@ let detectionHistory = [];
 const MAX_HISTORY_ITEMS = 50;
 let currentScene = "Unknown";
 let sceneConfidence = 0;
-let lastSceneAnnouncement = 0;
 
 // SCENE RECOGNITION DATABASE
 const SCENE_PATTERNS = {
@@ -181,7 +177,6 @@ async function downloadAndCacheModel(db) {
         const store = transaction.objectStore('models');
         store.put({
             id: 'coco-ssd',
-            version: OFFLINE_MODEL_VERSION,
             timestamp: Date.now(),
             url: 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/'
         });
@@ -284,7 +279,6 @@ scanButton.addEventListener('click', async () => {
             model = await modelPromise;
             clearInterval(progressInterval);
             
-            modelLoaded = true;
             updateLoadingProgress(95, "Starting camera...");
         } catch (err) {
             console.error("Model load failed:", err);
