@@ -54,6 +54,72 @@ let currentVolume = 1.0;
 let currentSpeechRate = 1.1;
 let detectionHistory = [];
 const MAX_HISTORY_ITEMS = 50;
+let currentScene = "Unknown";
+let sceneConfidence = 0;
+let lastSceneAnnouncement = 0;
+
+// SCENE RECOGNITION DATABASE
+const SCENE_PATTERNS = {
+    'Kitchen': {
+        objects: ['oven', 'refrigerator', 'sink', 'microwave', 'cup', 'bottle', 'knife', 'spoon', 'fork'],
+        hazards: ['knife', 'oven', 'stove'],
+        contextCues: {
+            knife: 'Sharp Object detected - use caution',
+            oven: 'Hot surface detected - keep away',
+            stove: 'Active heat source nearby'
+        }
+    },
+    'Bedroom': {
+        objects: ['bed', 'lamp', 'chair', 'dresser', 'wardrobe'],
+        hazards: ['bed edge'],
+        contextCues: {
+            bed: 'Bed detected - low obstacle risk',
+            lamp: 'Light fixture overhead'
+        }
+    },
+    'Bathroom': {
+        objects: ['toilet', 'sink', 'bathtub', 'shower'],
+        hazards: ['toilet', 'bathtub', 'wet floor'],
+        contextCues: {
+            toilet: 'Toilet detected - keep distance',
+            bathtub: 'Water hazard detected - slippery surface',
+            'wet floor': 'CAUTION: Wet surface - fall risk'
+        }
+    },
+    'Living Room': {
+        objects: ['tv', 'couch', 'table', 'chair', 'lamp'],
+        hazards: ['table', 'chair'],
+        contextCues: {
+            couch: 'Seating available',
+            table: 'Surface ahead - watch distance'
+        }
+    },
+    'Stairs': {
+        objects: ['stairs', 'steps', 'railing'],
+        hazards: ['stairs', 'steps'],
+        contextCues: {
+            stairs: 'MAJOR HAZARD: Stairs detected - extreme caution',
+            steps: 'Step hazard - clear path recommended'
+        }
+    },
+    'Outdoor': {
+        objects: ['car', 'traffic light', 'bicycle', 'person', 'road', 'sidewalk', 'tree'],
+        hazards: ['car', 'traffic light', 'bicycle'],
+        contextCues: {
+            car: 'Vehicle detected - maintain distance',
+            'traffic light': 'Traffic junction - check surroundings',
+            bicycle: 'Cyclist nearby - stay alert'
+        }
+    },
+    'Office': {
+        objects: ['computer', 'desk', 'chair', 'keyboard', 'monitor'],
+        hazards: ['chair'],
+        contextCues: {
+            desk: 'Work surface detected',
+            chair: 'Chair obstacle nearby'
+        }
+    }
+};
 
 // ==========================================
 // 4. OFFLINE MODEL MANAGEMENT
@@ -364,13 +430,19 @@ function startAppUI() {
         if (sceneText) sceneText.innerText = title.toUpperCase();
         if (objectList) objectList.innerText = subtitle;
         
+        // Update scene display
+        const sceneDisplay = document.getElementById('sceneDisplay');
+        const sceneConfidenceEl = document.getElementById('sceneConfidence');
+        if (sceneDisplay) sceneDisplay.innerText = currentScene;
+        if (sceneConfidenceEl) sceneConfidenceEl.innerText = `${Math.round(sceneConfidence * 100)}%`;
+        
         // Update status indicator based on hazard level
         if (statusDot && statusText) {
-            if (subtitle.includes('APPROACHING')) {
+            if (subtitle.includes('HAZARD:') || subtitle.includes('CRITICAL:')) {
                 statusDot.style.background = 'var(--error)';
                 statusDot.style.boxShadow = '0 0 15px var(--error), inset 0 0 5px rgba(255, 51, 51, 0.5)';
                 statusText.innerText = 'Hazard';
-            } else if (subtitle.includes('detected')) {
+            } else if (subtitle.includes('APPROACHING') || subtitle.includes('detected')) {
                 statusDot.style.background = 'var(--warning)';
                 statusDot.style.boxShadow = '0 0 15px var(--warning), inset 0 0 5px rgba(255, 165, 0, 0.5)';
                 statusText.innerText = 'Detecting';
@@ -385,22 +457,53 @@ function startAppUI() {
     function deduceEnvironment(labels) {
         let counts = {};
         labels.forEach(x => { counts[x] = (counts[x] || 0) + 1; });
-    
-        if (counts['toilet'] || counts['sink']) return "Bathroom";
-        if (counts['bed']) return "Bedroom";
-        if (counts['oven'] || counts['refrigerator']) return "Kitchen";
-        if (counts['tv'] && counts['couch']) return "Living Room";
-        if (counts['car'] || counts['traffic light']) return "Street";
-        return "Unknown Room";
+        
+        let bestScene = "Unknown";
+        let bestScore = 0;
+        
+        // Score each scene based on detected objects
+        for (const [scene, pattern] of Object.entries(SCENE_PATTERNS)) {
+            let score = 0;
+            pattern.objects.forEach(obj => {
+                if (counts[obj]) score += 1;
+            });
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestScene = scene;
+            }
+        }
+        
+        // High confidence if 2+ objects matched, medium if 1
+        sceneConfidence = bestScore >= 2 ? 0.9 : (bestScore === 1 ? 0.5 : 0.1);
+        
+        // Special case: Detect stairs (major hazard)
+        if (counts['stairs'] || counts['steps']) {
+            return "Stairs";
+        }
+        
+        return bestScene;
     }
     
     function buildSmartDescription(scene, objects) {
         objects.sort((a, b) => (b.movement === 'approaching' ? 1 : -1));
-        const topObjs = objects.slice(0, 2); 
-    
+        const topObjs = objects.slice(0, 2);
+        
         let text = "";
-        if (scene !== "Unknown Room") text += `In a ${scene}. `;
-    
+        
+        // Announce scene change with context
+        if (scene !== currentScene) {
+            currentScene = scene;
+            text += getSceneAnnouncement(scene);
+        }
+        
+        // Check for scene-specific hazards
+        const hazardWarnings = checkSceneHazards(scene, objects);
+        if (hazardWarnings) {
+            text += hazardWarnings + ". ";
+        }
+        
+        // Describe detected objects
         let parts = topObjs.map(obj => {
             let part = obj.label;
             if (obj.color) part = `${obj.color} ${part}`; 
@@ -410,6 +513,48 @@ function startAppUI() {
         });
     
         return text + parts.join(", and ");
+    }
+    
+    function getSceneAnnouncement(scene) {
+        const announces = {
+            'Kitchen': 'Entered kitchen environment. Watch for sharp objects and heat sources.',
+            'Bedroom': 'Bedroom detected. Low obstacle risks, but watch bed edges.',
+            'Bathroom': 'Bathroom detected. Caution: slippery surfaces and fixed obstacles.',
+            'Living Room': 'Living room identified. Watch for furniture.',
+            'Stairs': 'CRITICAL: Stairs detected ahead. Extreme caution required.',
+            'Outdoor': 'Outdoor environment detected. Watch for vehicles and pedestrians.',
+            'Office': 'Office space detected. Standard workspace navigation.'
+        };
+        return announces[scene] ? announces[scene] + ' ' : '';
+    }
+    
+    function checkSceneHazards(scene, objects) {
+        const sceneData = SCENE_PATTERNS[scene];
+        if (!sceneData) return '';
+        
+        let warnings = [];
+        
+        // Check for hazardous objects in this scene
+        objects.forEach(obj => {
+            if (sceneData.hazards.includes(obj.label)) {
+                const hazardMsg = sceneData.contextCues[obj.label];
+                if (hazardMsg && obj.movement !== 'approaching') {
+                    warnings.push(hazardMsg);
+                }
+            }
+        });
+        
+        // Critical warnings for approaching hazards
+        const approachingHazard = objects.find(o => 
+            o.movement === 'approaching' && sceneData.hazards.includes(o.label)
+        );
+        
+        if (approachingHazard) {
+            const hazardMsg = sceneData.contextCues[approachingHazard.label];
+            return `HAZARD: ${hazardMsg || approachingHazard.label + ' approaching'}. Move away immediately`;
+        }
+        
+        return warnings.length > 0 ? warnings[0] : '';
     }
     
     // ==========================================
