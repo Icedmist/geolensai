@@ -1,4 +1,4 @@
-# GeoLens AI 👁️😂
+# GeoLens AI 👁️
 
 **Offline vision assistance powered by edge computing. See the world through sound and logic.**
 
