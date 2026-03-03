@@ -1,0 +1,5 @@
+*.h5
+*.csv
+classes.txt
+tfjs_model/
+__pycache__/

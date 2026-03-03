@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASL Data Collector</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background: #222;
+            color: #fff;
+        }
+
+        video,
+        canvas {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 2px solid #00ffa3;
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        input,
+        button {
+            padding: 10px;
+            font-size: 16px;
+            margin: 5px;
+        }
+
+        #status {
+            font-size: 24px;
+            color: #00ffa3;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        #counter {
+            font-size: 18px;
+            color: #ff006e;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>GeoLens ASL Data Collector</h1>
+
+    <div class="controls">
+        <label>Letter to record (A-Z): </label>
+        <input type="text" id="labelInput" maxlength="1" size="2" style="text-transform: uppercase;">
+        <button id="startBtn">Start Recording (Hold letter)</button>
+        <button id="downloadBtn" disabled>Download dataset.csv</button>
+    </div>
+
+    <div id="status">Loading model...</div>
+    <div id="counter">Samples recorded: 0</div>
+
+    <video id="video" width="640" height="480" autoplay muted></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+        const counterEl = document.getElementById('counter');
+        const labelInput = document.getElementById('labelInput');
+        const startBtn = document.getElementById('startBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let model;
+        let isRecording = false;
+        let dataset = []; // Array of feature rows
+        const SAMPLES_TARGET = 100; // Collect 100 frames per letter
+
+        // CSV Header: label, x0,y0,z0, x1,y1,z1... up to x20,y20,z20
+        let csvHeader = "label,";
+        for (let i = 0; i < 21; i++) {
+            csvHeader += `x${i},y${i},z${i}${i === 20 ? "" : ","}`;
+        }
+
+        async function init() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+
+                model = await handpose.load();
+                statusEl.innerText = "Ready. Enter a letter and click Start.";
+                detectFrame();
+            } catch (err) {
+                statusEl.innerText = "Error: " + err.message;
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            const letter = labelInput.value.toUpperCase();
+            if (!/^[A-Z]$/.test(letter)) {
+                alert("Please enter a single letter A-Z");
+                return;
+            }
+            startBtn.disabled = true;
+            isRecording = true;
+            statusEl.innerText = `Recording ${letter}... Hold still!`;
+        });
+
+        async function detectFrame() {
+            if (model && video.readyState >= 2) {
+                const predictions = await model.estimateHands(video);
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (predictions.length > 0) {
+                    const hand = predictions[0];
+                    drawHand(hand.landmarks);
+
+                    if (isRecording) {
+                        recordData(hand.landmarks, labelInput.value.toUpperCase());
+                    }
+                }
+            }
+            requestAnimationFrame(detectFrame);
+        }
+
+        function recordData(landmarks, label) {
+            // Flatten landmarks into a single array
+            let row = [label];
+            landmarks.forEach(p => {
+                row.push(p[0], p[1], p[2] || 0); // x, y, z
+            });
+
+            dataset.push(row);
+            counterEl.innerText = `Samples recorded: ${dataset.filter(r => r[0] === label).length}`;
+
+            // Stop automatically after reaching target for this letter
+            if (dataset.filter(r => r[0] === label).length >= SAMPLES_TARGET) {
+                isRecording = false;
+                startBtn.disabled = false;
+                downloadBtn.disabled = false;
+                labelInput.value = "";
+                statusEl.innerText = `Done recording ${label}! Enter next letter.`;
+            }
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            let csvContent = "data:text/csv;charset=utf-8," + csvHeader + "\n" +
+                dataset.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "asl_dataset.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        function drawHand(landmarks) {
+            ctx.fillStyle = "#ff006e";
+            for (let i = 0; i < landmarks.length; i++) {
+                const [x, y] = landmarks[i];
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+
+        video.onloadeddata = () => init();
+    </script>
+</body>
+
+</html>
