@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GeoLens AI</title>
     <link rel="stylesheet" href="style.css">
-    
+
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <!-- Add Handpose for Sign Language Models -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
 </head>
+
 <body>
 
     <div id="landing-page">
@@ -17,49 +21,65 @@
                 <div class="logo-circle">👁️</div>
             </div>
             <h1>GeoLens AI</h1>
-            <p class="subtitle">Offline vision assistance powered by edge computing. See the world through sound and logic.</p>
-            
+            <p class="subtitle">Offline vision & sign language assistance powered by edge computing.</p>
+
             <button id="scanButton" class="launch-btn" aria-label="Launch core functionality">
-                <span class="btn-text">Launch Core</span>
+                <span class="btn-text">Launch App</span>
                 <span class="btn-icon">→</span>
             </button>
 
             <div style="margin-top: 30px; font-size: 0.85rem; color: var(--text-secondary);">
                 <span>✨ No internet required</span>
                 <span style="margin: 0 10px;">•</span>
-                <span>⚡ Real-time detection</span>
+                <span>⚡ Real-time processing</span>
             </div>
         </div>
 
         <footer>
             <span>Built by <strong>Nasir Ibrahim Imam</strong></span><br>
             <nav class="social-links">
-                <a href="https://github.com/icedmist" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
+                <a href="https://github.com/icedmist" target="_blank" rel="noopener noreferrer"
+                    aria-label="GitHub">GitHub</a>
                 <span class="separator">•</span>
-                <a href="https://linkedin.com/in/nasir-ibrahim-imam-403ba523b" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">LinkedIn</a>
+                <a href="https://linkedin.com/in/nasir-ibrahim-imam-403ba523b" target="_blank" rel="noopener noreferrer"
+                    aria-label="LinkedIn">LinkedIn</a>
             </nav>
         </footer>
     </div>
 
     <div id="app-interface">
-        
+
         <div class="top-bar">
             <div class="status-indicator">
                 <span class="status-dot"></span>
                 <span class="status-text">Ready</span>
             </div>
-            <div class="performance-metrics">
+
+            <!-- Mode Switcher -->
+            <div class="mode-switcher">
+                <button id="modeObjectBtn" class="mode-btn active" aria-label="Object Scanner Mode">
+                    <span>🔍</span> Objects
+                </button>
+                <button id="modeSignBtn" class="mode-btn" aria-label="Sign Language Mode">
+                    <span>🤟</span> Sign
+                </button>
+            </div>
+
+            <div class="performance-metrics hidden-mobile">
                 <span class="metric-item" id="fps-counter">FPS: 0</span>
                 <span class="metric-separator">|</span>
                 <span class="metric-item" id="inference-time">0ms</span>
             </div>
+
             <button id="audioToggle" class="icon-btn" aria-label="Audio controls" title="Toggle audio controls">
                 <span class="icon-text">🔊</span>
             </button>
-            <button id="screenToggle" class="icon-btn" aria-label="Toggle battery saver mode" title="Toggle battery saver mode">
+            <button id="screenToggle" class="icon-btn" aria-label="Toggle battery saver mode"
+                title="Toggle battery saver mode">
                 <span class="icon-text">⚡</span>
             </button>
-            <button id="historyToggle" class="icon-btn" aria-label="View detection history" title="View detection history">
+            <button id="historyToggle" class="icon-btn" aria-label="View detection history"
+                title="View detection history">
                 <span class="icon-text">📋</span>
             </button>
         </div>
@@ -67,7 +87,7 @@
         <div id="loading-overlay" class="loading-overlay">
             <div class="loader-container">
                 <div class="spinner"></div>
-                <h3>Loading Model</h3>
+                <h3 id="loaderTitle">Loading Model</h3>
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
@@ -105,10 +125,11 @@
         <div id="cam-container">
             <video id="webcam" playsinline muted autoplay></video>
             <canvas id="canvas"></canvas>
-            <div class="scan-line"></div>
+            <div class="scan-line" id="scanLine"></div>
         </div>
 
-        <div id="hud-overlay">
+        <!-- Object Detection HUD -->
+        <div id="hud-overlay" class="mode-panel active-panel">
             <div class="hud-header">
                 <h3 id="sceneText" class="hud-title">SYSTEM READY</h3>
                 <span class="hud-confidence" id="confidence">--</span>
@@ -120,6 +141,28 @@
             <p id="objectList" class="hud-content">Initializing camera feed...</p>
             <div class="hud-footer">
                 <span class="hud-hint">🔊 Audio active</span>
+            </div>
+        </div>
+
+        <!-- Sign Language HUD -->
+        <div id="sign-overlay" class="mode-panel">
+            <div class="hud-header">
+                <h3 class="hud-title">SIGN READER</h3>
+                <span class="hud-confidence" id="signConfidence">--</span>
+            </div>
+
+            <div class="translation-tape-container">
+                <div class="current-letter-display" id="currentSignLetter">
+                    -
+                </div>
+                <div class="tape-content">
+                    <p id="translationTape" class="translation-text">Waiting for signs...</p>
+                </div>
+            </div>
+
+            <div class="hud-footer flex-between">
+                <span class="hud-hint">🤟 Form ASL shapes in frame</span>
+                <button id="clearTapeBtn" class="action-btn-small">Clear</button>
             </div>
         </div>
 
@@ -140,7 +183,7 @@
     </div>
 
     <script src="script.js"></script>
-    
+
     <script>
         // Simple logic to hide landing page when app starts
         // (Your main script handles the camera, this just handles the fade out)
@@ -151,4 +194,5 @@
         });
     </script>
 </body>
+
 </html>
